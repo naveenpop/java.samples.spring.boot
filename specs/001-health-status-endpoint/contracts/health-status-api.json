@@ -1,0 +1,208 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Java Spring Boot REST API - Health Status Endpoint",
+    "description": "Health and System Resource Status Endpoint for monitoring application uptime and JVM memory metrics.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Development Team",
+      "url": "https://github.com/naveenpop/java.samples.spring.boot"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:9000",
+      "description": "Local development server"
+    },
+    {
+      "url": "https://api.example.com",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/api/v1/status": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get application health status",
+        "operationId": "getHealthStatus",
+        "description": "Returns application uptime, JVM memory metrics (total allocated and currently free), and server timestamp. No authentication required. Public endpoint suitable for load balancers and monitoring systems.",
+        "responses": {
+          "200": {
+            "description": "Health status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatusResponse"
+                },
+                "examples": {
+                  "healthy": {
+                    "summary": "Healthy application with good memory availability",
+                    "value": {
+                      "uptime": "2h 15m 30s",
+                      "totalMemoryMB": 512,
+                      "freeMemoryMB": 256,
+                      "timestamp": "2026-07-02T17:11:00Z"
+                    }
+                  },
+                  "low_memory": {
+                    "summary": "Application with low free memory (may indicate pressure)",
+                    "value": {
+                      "uptime": "5h 30m 15s",
+                      "totalMemoryMB": 512,
+                      "freeMemoryMB": 8,
+                      "timestamp": "2026-07-02T22:41:15Z"
+                    }
+                  },
+                  "startup": {
+                    "summary": "Recently started application",
+                    "value": {
+                      "uptime": "0s",
+                      "totalMemoryMB": 384,
+                      "freeMemoryMB": 384,
+                      "timestamp": "2026-07-02T17:11:00Z"
+                    }
+                  },
+                  "degraded": {
+                    "summary": "Memory metrics unavailable (rare; memory access denied)",
+                    "value": {
+                      "uptime": "1h 15m 30s",
+                      "totalMemoryMB": 0,
+                      "freeMemoryMB": 0,
+                      "timestamp": "2026-07-02T18:26:30Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed (invalid HTTP method: POST, PUT, DELETE, etc.)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "timestamp": "2026-07-02T17:11:00Z",
+                  "status": 405,
+                  "error": "Method Not Allowed",
+                  "message": "Request method 'POST' not supported",
+                  "path": "/api/v1/status"
+                }
+              }
+            }
+          }
+        },
+        "x-response-time-ms": 10,
+        "x-response-time-percentile": 99,
+        "x-response-time-note": "99th percentile response time must be under 10ms"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthStatusResponse": {
+        "type": "object",
+        "title": "HealthStatusResponse",
+        "description": "Immutable response object representing application health and system resource status at a point in time.",
+        "required": [
+          "uptime",
+          "totalMemoryMB",
+          "freeMemoryMB",
+          "timestamp"
+        ],
+        "properties": {
+          "uptime": {
+            "type": "string",
+            "description": "Application uptime in human-readable format with pattern XhYmZs. Zero components are omitted (e.g., '2h 15m 30s', '45m 30s', '15s'). Updated continuously as application runs; increases monotonically with application runtime.",
+            "pattern": "^(\\d+h )?( \\d+m)?( \\d+s)?$",
+            "example": "45m 30s",
+            "minLength": 1
+          },
+          "totalMemoryMB": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total JVM memory allocated to the application in megabytes. Obtained from Runtime.getRuntime().totalMemory() converted to MB. Represents current heap allocation, not maximum (-Xmx). If memory metrics cannot be retrieved (rare), value is 0.",
+            "example": 512,
+            "minimum": 0
+          },
+          "freeMemoryMB": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Currently available JVM free heap memory in megabytes. Obtained from Runtime.getRuntime().freeMemory() converted to MB. Represents space available for new object allocation before garbage collection occurs. Constraint: freeMemoryMB <= totalMemoryMB. Highly variable; changes with garbage collection and allocation. If memory metrics cannot be retrieved (rare), value is 0.",
+            "example": 256,
+            "minimum": 0
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 UTC timestamp indicating when this response was generated on the server. Always UTC (ends with Z); never client's local time. Useful for audit trails and correlating metrics with application logs. Precision: seconds (no milliseconds).",
+            "example": "2026-07-02T17:11:00Z",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+          }
+        },
+        "example": {
+          "uptime": "2h 15m 30s",
+          "totalMemoryMB": 512,
+          "freeMemoryMB": 256,
+          "timestamp": "2026-07-02T17:11:00Z"
+        },
+        "xml": {
+          "name": "HealthStatusResponse"
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "title": "ErrorResponse",
+        "description": "Standard error response returned by Spring MVC for invalid HTTP methods and other errors.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp when error occurred",
+            "example": "2026-07-02T17:11:00Z"
+          },
+          "status": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "example": 405
+          },
+          "error": {
+            "type": "string",
+            "description": "Error type",
+            "example": "Method Not Allowed"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Request method 'POST' not supported"
+          },
+          "path": {
+            "type": "string",
+            "description": "Request path",
+            "example": "/api/v1/status"
+          }
+        }
+      }
+    },
+    "securitySchemes": {}
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Health and System Resource Status Endpoint"
+    }
+  ],
+  "x-api-id": "health-status-v1",
+  "x-api-lifecycle": "production",
+  "x-features": {
+    "authentication": false,
+    "caching": false,
+    "database_access": false,
+    "external_api_calls": false,
+    "response_time_ms": 10
+  }
+}
